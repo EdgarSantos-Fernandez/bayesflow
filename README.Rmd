@@ -68,7 +68,7 @@ $$
 b_t = \frac{(1-\omega)\alpha b_{t-1} + (1-\alpha)\omega y_t}{1-\alpha \omega}
 $$
 
-where $\omega$ is a baseflow index, usually fixed at 0.8, 0.5 or 0.25 depending on the chracteristics of the stream.
+where $\omega$ is a baseflow index, usually fixed at 0.8, 0.5 or 0.25 depending on the characteristics of the stream.
 
 
 

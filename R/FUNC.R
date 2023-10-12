@@ -15,6 +15,8 @@
 #' @param bfi A baseflow index used in the Eckhardt's approach
 #' @return A list with the model fit
 #' @details Missing values are not allowed in the covariates and they must be imputed before using the function.
+#' @details A current limitation is that the function expects at least a missing value in the response variable.
+#' @details This will be fixed in future updates. In the meantime, setting one value to missing should work.
 #' @return It returns a stanfit object. It includes the formula used to fit the model.
 #' @export
 #' @importFrom dplyr mutate %>% distinct left_join case_when
@@ -38,6 +40,7 @@
 #'}
 #'
 
+
 baseflow <- function(formula = formula,
                      data = data,
                      method = 'lh',
@@ -53,10 +56,13 @@ baseflow <- function(formula = formula,
 
 
 
-
+  if(missing(seed)) seed <- sample(1:1E6,1,replace=TRUE)
 
   time_method = list("ar", "date") # NB
 
+  if(missing(method)){
+    method <- 'lh' # to add this part
+  }
 
   data_com <-  'data {
       int<lower=1> T;
@@ -93,7 +99,7 @@ baseflow <- function(formula = formula,
     matrix[T,passes] f; // filter
     matrix[T,passes] b; // vector<lower=0> [T] b; base
     matrix[T,passes+1] y0; // updated y
-    vector<lower=0>[T] mu;
+    vector<lower=0>[T] mu; // NB check this
     vector[T] epsilon; // error term
       y[i_y_obs] = y_obs;
       y[i_y_mis] = y_mis;
@@ -262,8 +268,13 @@ baseflow <- function(formula = formula,
   X <- out_list$X
 
 
-  y_obs <- data[!is.na(data$y),]$y
 
+  resp_var_name <- gsub("[^[:alnum:]]", " ", formula[2])
+  data$y <- data[,names(data) %in% resp_var_name]
+
+
+  y_obs <- data[!is.na(data$y),]$y
+  y_obs <- data.frame(y_obs)
   # index for observed values
 
   data$date_id <- as.numeric(factor(data$date))
@@ -277,8 +288,8 @@ baseflow <- function(formula = formula,
 
   data_list <- list(ii = ii, # 1 for odd/forward passes 2 for even/backward
                     passes = passes,
-                    T = nrow(df), # time points
-                    y_obs = y_obs,# y values in the obs df
+                    T = nrow(data), # time points
+                    y_obs = y_obs[,1],# y values in the obs df
                     N_y_obs = length(i_y_obs),  #nrow(i_y_obs) numb obs points
                     N_y_mis = length(i_y_mis), #nrow(i_y_mis) numb preds points
 
@@ -291,10 +302,11 @@ baseflow <- function(formula = formula,
 
   ini <- function(){list(sigma = 1,
                          alpha =  0.9,
-                         y =  rep(80,nrow(df)),
-                         f =  matrix(rep(50, passes * nrow(df)), nrow = nrow(df),  ncol = passes),
-                         y0 =  matrix(rep(70, passes * nrow(df)), nrow = nrow(df),  ncol = passes),
-                         b =  matrix(rep(50, passes * nrow(df)), nrow = nrow(df),  ncol = passes)
+                         y =  rep(80,nrow(data)),
+                         #mu = 10, # NB
+                         f =  matrix(rep(50, passes * nrow(data)), nrow = nrow(data),  ncol = passes),
+                         y0 =  matrix(rep(70, passes * nrow(data)), nrow = nrow(data),  ncol = passes),
+                         b =  matrix(rep(50, passes * nrow(data)), nrow = nrow(data),  ncol = passes)
   )}
 
 
@@ -318,8 +330,6 @@ baseflow <- function(formula = formula,
 
   fit
 }
-
-
 
 
 
